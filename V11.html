@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix V11 - Ultimate Spatial Radar</title>
+    
+    <!-- إعدادات الأيقونة والهوم سكرين -->
+    <link rel="apple-touch-icon" href="https://i.ibb.co/BHskDWWd/IMG-3453.jpg">
+    <link rel="icon" type="image/jpeg" href="https://i.ibb.co/BHskDWWd/IMG-3453.jpg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MatrixV11">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        body {
+            background: #030712;
+            color: #00ff66;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            overflow-x: hidden;
+        }
+        canvas#matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.18;
+        }
+        
+        /* شاشة التيرموكس والهوم سكرين (15 ثانية) */
+        #termux-home-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #030712;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 20px;
+            font-size: 13px;
+            color: #00ff66;
+            overflow-y: auto;
+        }
+        .termux-header {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-shadow: 0 0 10px #00ff66;
+            border-bottom: 1px dashed rgba(0,255,102,0.4);
+            width: 100%;
+            padding-bottom: 6px;
+        }
+        .termux-line {
+            margin: 3px 0;
+            opacity: 0;
+            animation: fadeInLine 0.25s forwards;
+        }
+        @keyframes fadeInLine {
+            to { opacity: 1; }
+        }
+        .home-welcome-box {
+            margin-top: 15px;
+            background: rgba(0, 20, 10, 0.85);
+            border: 1px solid #00ff66;
+            padding: 12px;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.3);
+            display: none;
+        }
+        .home-welcome-box h3 {
+            color: #fff;
+            font-size: 15px;
+            margin-bottom: 6px;
+            text-shadow: 0 0 10px #00ff66;
+        }
+        .launch-btn {
+            margin-top: 10px;
+            background: #00ff66;
+            color: #030712;
+            border: none;
+            padding: 8px 16px;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00ff66;
+            transition: 0.2s;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .launch-btn:hover {
+            background: #fff;
+            box-shadow: 0 0 18px #fff;
+        }
+
+        #scan-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 7, 18, 0.88);
+            z-index: 9998;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff66;
+        }
+        .radar-circle {
+            width: 110px;
+            height: 110px;
+            border: 2px dashed rgba(0, 255, 102, 0.7);
+            border-radius: 50%;
+            position: relative;
+            animation: radarSpin 1s linear infinite;
+            box-shadow: 0 0 25px rgba(0, 255, 102, 0.4);
+        }
+        @keyframes radarSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .scan-text {
+            margin-top: 15px;
+            font-size: 13px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px #00ff66;
+        }
+
+        .my-location-marker {
+            width: 18px;
+            height: 18px;
+            background: #00ff66;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #00ff66, 0 0 25px #00ff66;
+            animation: pulseMarker 1.5s infinite;
+        }
+        @keyframes pulseMarker {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 12px rgba(0, 255, 102, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(0, 255, 102, 0); }
+        }
+
+        .avatar-radar-wrapper {
+            position: relative;
+            width: 55px;
+            height: 55px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .custom-avatar-marker {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 2px solid #00ff66;
+            box-shadow: 0 0 12px rgba(0, 255, 102, 0.9);
+            object-fit: cover;
+            background: #030712;
+            z-index: 2;
+        }
+        .radar-pulse-wave {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #00ff66;
+            border-radius: 50%;
+            animation: radarWaveExpand 1.8s infinite ease-out;
+            z-index: 1;
+        }
+        @keyframes radarWaveExpand {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+
+        .ahmad-banner {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(0, 255, 102, 0.1);
+            border: 1px dashed #00ff66;
+            padding: 8px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 0 0 12px #00ff66;
+        }
+
+        h2 {
+            margin: 4px 0 10px 0;
+            color: #00ff66;
+            text-shadow: 0 0 10px rgba(0, 255, 102, 0.8);
+            font-size: 15px;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(3, 7, 18, 0.94);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 102, 0.4);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 0 25px rgba(0, 255, 102, 0.2);
+            display: none;
+        }
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            background: rgba(0, 20, 10, 0.6);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .action-btn {
+            background: rgba(0, 255, 102, 0.2);
+            border: 1px solid #00ff66;
+            color: #00ff66;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            transition: 0.2s;
+        }
+        .action-btn.active-state {
+            background: #00ff66;
+            color: #030712;
+            font-weight: bold;
+        }
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+            max-height: 140px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        button.node-btn {
+            background: rgba(0, 255, 102, 0.08);
+            border: 1px solid #00ff66;
+            padding: 8px 4px;
+            color: #00ff66;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.3s ease;
+            text-align: center;
+            box-shadow: 0 0 5px rgba(0, 255, 102, 0.1);
+        }
+        button.node-btn:hover, button.node-btn.active {
+            background: #00ff66;
+            color: #030712;
+            box-shadow: 0 0 12px #00ff66;
+            transform: scale(1.02);
+        }
+        
+        #map-container {
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 102, 0.5);
+            box-shadow: inset 0 0 15px rgba(0, 255, 102, 0.2);
+            overflow: hidden;
+            transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        .mode-3d-active {
+            transform: perspective(700px) rotateX(32deg) scale(1.08);
+            box-shadow: 0 20px 40px rgba(0, 255, 102, 0.5);
+            border: 2px solid #fff !important;
+        }
+
+        .info-box {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 20, 10, 0.8);
+            border-radius: 6px;
+            border-left: 3px solid #00ff66;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        .steps-container {
+            margin-top: 6px;
+            max-height: 75px;
+            overflow-y: auto;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 4px;
+            font-size: 10px;
+            color: #a7f3d0;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix-bg"></canvas>
+
+    <div id="termux-home-screen">
+        <div class="termux-header">[ TERMUX HOME SCREEN - MATRIX V11 ]</div>
+        <div id="console-logs"></div>
+        
+        <div class="home-welcome-box" id="home-welcome-box">
+            <h3>> SYSTEM STATUS: SECURE & ONLINE</h3>
+            <p>Target User: <b>AHMAD</b></p>
+            <p>Live GPS Geolocation: <b>ACTIVE</b></p>
+            <button class="launch-btn" onclick="launchMainSystem()">[ LAUNCH MATRIX RADAR ]</button>
+        </div>
+    </div>
+
+    <div id="scan-overlay">
+        <div class="radar-circle"></div>
+        <div class="scan-text" id="scan-status">RADAR SCANNING TARGET...</div>
+    </div>
+
+    <div class="ahmad-banner">WELCOME BACK, AHMAD</div>
+    <h2>[ MATRIX V11 - ULTIMATE SPATIAL RADAR ]</h2>
+    
+    <div class="container" id="main-content">
+        <div class="controls-bar">
+            <div>Auto-Switch: <span id="timer-display" style="color:#fff;">Off</span></div>
+            <button class="action-btn" id="toggle-auto-btn" onclick="toggleAutoSwitch()">Auto (5s)</button>
+            <button class="action-btn" id="toggle-3d-btn" onclick="toggle3DMode()">3D View: Off</button>
+        </div>
+
+        <div class="buttons-grid">
+            <button class="node-btn" id="btn-ayat" onclick="triggerScanAndLoad('ayat')">AYAT.file</button>
+            <button class="node-btn" id="btn-youssef" onclick="triggerScanAndLoad('youssef')">YOUSSEF.file</button>
+            <button class="node-btn" id="btn-amr" onclick="triggerScanAndLoad('amr')">AMR.file</button>
+            <button class="node-btn" id="btn-fares" onclick="triggerScanAndLoad('fares')">FARES.file</button>
+            <button class="node-btn" id="btn-mohamed" onclick="triggerScanAndLoad('mohamed')">MOHAMED.file</button>
+            <button class="node-btn" id="btn-joumana" onclick="triggerScanAndLoad('joumana')">JOUMANA.file</button>
+            <button class="node-btn" id="btn-ashraf" onclick="triggerScanAndLoad('ashraf')">ASHRAF.file</button>
+            <button class="node-btn" id="btn-mohamed_taha" onclick="triggerScanAndLoad('mohamed_taha')">MOHAMED_TAHA.file</button>
+            <button class="node-btn" id="btn-magdy" onclick="triggerScanAndLoad('magdy')">MAGDY.file</button>
+            <button class="node-btn" id="btn-sara" onclick="triggerScanAndLoad('sara')">SARA.file</button>
+            <button class="node-btn" id="btn-karim" onclick="triggerScanAndLoad('karim')">KARIM.file</button>
+            <button class="node-btn" id="btn-mayada" onclick="triggerScanAndLoad('mayada')">MAYADA.file</button>
+        </div>
+
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+
+        <div class="info-box" id="info-text">
+            > Matrix V11 ready. Acquiring live GPS position...
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        function playRadarPing() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.3);
+                
+                gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } catch(e) {
+                console.log("Audio requires interaction");
+            }
+        }
+
+        const logsContainer = document.getElementById('console-logs');
+        const logSteps = [
+            "> pkg update && pkg upgrade -y",
+            "> mounting root matrix storage...",
+            "> acquiring live GPS satellite fix...",
+            "> decrypting secure node certificates...",
+            "> loading spatial modules & radar grid...",
+            "> checking background proxy layers...",
+            "> verifying authorization for user: AHMAD...",
+            "> connection established successfully."
+        ];
+
+        let stepIndex = 0;
+        function runTermuxLogs() {
+            if (stepIndex < logSteps.length) {
+                const div = document.createElement('div');
+                div.className = 'termux-line';
+                div.innerText = logSteps[stepIndex];
+                logsContainer.appendChild(div);
+                stepIndex++;
+                setTimeout(runTermuxLogs, 1600); // إجمالي حوالي 15 ثانية مدة التحميل
+            } else {
+                document.getElementById('home-welcome-box').style.display = 'block';
+            }
+        }
+        window.onload = runTermuxLogs;
+
+        let userLat = 30.837125;
+        let userLng = 31.295485;
+
+        function launchMainSystem() {
+            playRadarPing();
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        userLat = position.coords.latitude;
+                        userLng = position.coords.longitude;
+                        initMapAndStart();
+                    },
+                    error => {
+                        initMapAndStart();
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            } else {
+                initMapAndStart();
+            }
+        }
+
+        let map, currentRouteLayer, markersGroup;
+
+        function initMapAndStart() {
+            const homeScreen = document.getElementById('termux-home-screen');
+            homeScreen.style.opacity = '0';
+            homeScreen.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                homeScreen.style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                
+                if (!map) {
+                    map = L.map('map').setView([userLat, userLng], 16);
+
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        maxZoom: 19,
+                        attribution: 'Tiles &copy; Esri'
+                    }).addTo(map);
+
+                    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                        maxZoom: 19
+                    }).addTo(map);
+
+                    markersGroup = L.layerGroup().addTo(map);
+                } else {
+                    map.invalidateSize();
+                }
+
+                triggerScanAndLoad('ayat');
+            }, 500);
+        }
+
+        // قاعدة البيانات (موقع عمرو AMR يتم تحديثه تلقائياً ليقترب من موقعك الحالي دائماً)
+        const virtualFiles = {
+            ayat: { fileName: "AYAT.json", name: "AYAT", lat: 30.840116, lng: 31.297815, img: "https://i.ibb.co/YBKGcyvY/IMG-3446.jpg", isMoving: true, speed: "1.2 m/s" },
+            youssef: { fileName: "YOUSSEF.json", name: "YOUSSEF", lat: 30.840830, lng: 31.298977, img: "https://i.ibb.co/DfwhGdh7/IMG-2911.jpg", isMoving: false, speed: "Static (0 m/s)" },
+            amr: { fileName: "AMR.json", name: "AMR", lat: 0, lng: 0, img: "https://i.ibb.co/p6y9x7pd/IMG-0519.jpg", isMoving: true, speed: "0.2 m/s (Close to you)" }, // سيتم حسابه بجانبك
+            fares: { fileName: "FARES.json", name: "FARES", lat: 30.839087, lng: 31.296812, img: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100", isMoving: false, speed: "Static (0 m/s)" },
+            mohamed: { fileName: "MOHAMED.json", name: "MOHAMED", lat: 30.838631, lng: 31.296202, img: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100", isMoving: true, speed: "0.5 m/s" },
+            joumana: { fileName: "JOUMANA.json", name: "JOUMANA", lat: 30.937879, lng: 31.291901, img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100", isMoving: false, speed: "Static (0 m/s)" },
+            ashraf: { fileName: "ASHRAF.json", name: "ASHRAF", lat: 30.838929, lng: 31.293488, img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100", isMoving: true, speed: "1.1 m/s" },
+            mohamed_taha: { fileName: "MOHAMED_TAHA.json", name: "MOHAMED TAHA", lat: 30.837841, lng: 31.294478, img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100", isMoving: false, speed: "Static (0 m/s)" },
+            magdy: { fileName: "MAGDY.json", name: "MAGDY", lat: 29.587757, lng: 32.773215, img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100", isMoving: true, speed: "2.0 m/s" },
+            sara: { fileName: "SARA.json", name: "SARA", lat: 30.839500, lng: 31.295500, img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100", isMoving: true, speed: "0.9 m/s" },
+            karim: { fileName: "KARIM.json", name: "KARIM", lat: 30.838100, lng: 31.298200, img: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100", isMoving: false, speed: "Static (0 m/s)" },
+            mayada: { fileName: "MAYADA.json", name: "MAYADA", lat: 30.836800, lng: 31.293100, img: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100", isMoving: true, speed: "1.3 m/s" }
+        };
+
+        const canvas = document.getElementById('matrix-bg');
+        const ctx = canvas.getContext('2d');
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const letters = "01ABCDEFXYZV11MATRIXRADAR";
+        const fontSize = 12;
+        const columns = canvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(3, 7, 18, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00ff66';
+            ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 50);
+
+        function triggerScanAndLoad(personKey) {
+            playRadarPing();
+
+            const overlay = document.getElementById('scan-overlay');
+            const scanStatus = document.getElementById('scan-status');
+            overlay.style.display = 'flex';
+            scanStatus.innerText = `RADAR SCANNING: ${personKey.toUpperCase()}...`;
+
+            setTimeout(() => {
+                scanStatus.innerText = "TARGET LOCKED [SUCCESS]";
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    loadPersonFile(personKey);
+                }, 350);
+            }, 700);
+        }
+
+        function loadPersonFile(personKey) {
+            const fileData = virtualFiles[personKey];
+            
+            // جعل موقع عمرو دائما بجانبك (أقرب نقطة)
+            if (personKey === 'amr') {
+                fileData.lat = userLat + 0.0008;
+                fileData.lng = userLng + 0.0008;
+            }
+
+            document.querySelectorAll('.node-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`btn-${personKey}`);
+            if(activeBtn) activeBtn.classList.add('active');
+
+            document.getElementById('info-text').innerHTML = `
+                > Matrix File: <span style="color:#fff;">${fileData.fileName}</span><br>
+                > Calculating live GPS vector to <span style="color:#fff;">${fileData.name}</span>...
+            `;
+
+            fetchRouteAndDisplay(userLat, userLng, fileData);
+        }
+
+        function fetchRouteAndDisplay(uLat, uLng, person) {
+            if (!markersGroup) return;
+            markersGroup.clearLayers();
+            if (currentRouteLayer) {
+                map.removeLayer(currentRouteLayer);
+            }
+
+            const ahmadIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="my-location-marker" title="Your Live GPS (Ahmad)"></div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+
+            L.marker([uLat, uLng], { icon: ahmadIcon }).addTo(markersGroup)
+                .bindPopup("<b>[ Your Live GPS - Ahmad (You) ]</b>");
+
+            const personIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `
+                    <div class="avatar-radar-wrapper" title="${person.name}">
+                        <div class="radar-pulse-wave"></div>
+                        <img src="${person.img}" class="custom-avatar-marker">
+                    </div>
+                `,
+                iconSize: [55, 55],
+                iconAnchor: [27, 27]
+            });
+
+            L.marker([person.lat, person.lng], { icon: personIcon }).addTo(markersGroup)
+                .bindPopup(`<b>[ Target: ${person.name} ]</b>`).openPopup();
+
+            const url = `https://router.project-osrm.org/route/v1/walking/${uLng},${uLat};${person.lng},${person.lat}?overview=full&geometries=geojson&steps=true`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routes && data.routes.length > 0) {
+                        const route = data.routes[0];
+                        const durationMins = Math.ceil(route.duration / 60);
+                        const distanceKm = (route.distance / 1000).toFixed(2);
+                        const distText = distanceKm >= 1 ? `${distanceKm} km` : `${route.distance.toFixed(0)} m`;
+
+                        currentRouteLayer = L.geoJSON(route.geometry, {
+                            style: { 
+                                color: '#00ffcc', 
+                                weight: 6, 
+                                opacity: 0.95, 
+                                dashArray: '8, 8'
+                            }
+                        }).addTo(map);
+
+                        const bounds = currentRouteLayer.getBounds();
+                        map.flyToBounds(bounds, {
+                            padding: [40, 40],
+                            duration: 1.2,
+                            easeLinearity: 0.3
+                        });
+
+                        let stepsHtml = "";
+                        if (route.legs && route.legs[0].steps) {
+                            route.legs[0].steps.forEach((step, index) => {
+                                stepsHtml += `<div>${index + 1}. ${step.maneuver.instruction} (${Math.round(step.distance)}m)</div>`;
+                            });
+                        }
+
+                        const motionBadge = person.isMoving 
+                            ? `<span style="color:#00ff66; background:rgba(0,255,102,0.15); padding:1px 5px; border-radius:3px;">🟢 MOVING (${person.speed})</span>` 
+                            : `<span style="color:#ff3333; background:rgba(255,51,51,0.15); padding:1px 5px; border-radius:3px;">🔴 STATIC (${person.speed})</span>`;
+
+                        document.getElementById('info-text').innerHTML = `
+                            > File: <span style="color:#fff;">${person.fileName}</span> | Target: <span style="color:#fff; font-weight:bold;">${person.name}</span><br>
+                            > 🚶‍♂️ <b>Motion Status:</b> ${motionBadge}<br>
+                            > ⏱️ <b>Estimated Time:</b> <span style="color:#fff; background: rgba(0,255,102,0.3); padding: 2px 5px; border-radius: 3px;">~${durationMins} mins</span><br>
+                            > 📏 <b>Distance from Your GPS:</b> <span style="color:#00ffcc; font-weight:bold;">${distText}</span><br>
+                            > 🧭 <b>Matrix Steps:</b>
+                            <div class="steps-container">${stepsHtml || "Proceed straight."}</div>
+                        `;
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        let autoSwitchInterval = null;
+        let isAutoActive = false;
+        const keysList = Object.keys(virtualFiles);
+        let currentIndex = 0;
+
+        function toggleAutoSwitch() {
+            const btn = document.getElementById('toggle-auto-btn');
+            const display = document.getElementById('timer-display');
+
+            if (!isAutoActive) {
+                isAutoActive = true;
+                btn.classList.add('active-state');
+                btn.innerText = "Auto (On)";
+                display.innerText = "Active (5s)";
+                
+                autoSwitchInterval = setInterval(() => {
+                    currentIndex = (currentIndex + 1) % keysList.length;
+                    const nextKey = keysList[currentIndex];
+                    triggerScanAndLoad(nextKey);
+                }, 5000);
+            } else {
+                isAutoActive = false;
+                btn.classList.remove('active-state');
+                btn.innerText = "Auto (5s)";
+                display.innerText = "Off";
+                clearInterval(autoSwitchInterval);
+            }
+        }
+
+        let is3DActive = false;
+        function toggle3DMode() {
+            const mapContainer = document.getElementById('map-container');
+            const btn3D = document.getElementById('toggle-3d-btn');
+
+            is3DActive = !is3DActive;
+            if (is3DActive) {
+                mapContainer.classList.add('mode-3d-active');
+                btn3D.classList.add('active-state');
+                btn3D.innerText = "3D View: On";
+            } else {
+                mapContainer.classList.remove('mode-3d-active');
+                btn3D.classList.remove('active-state');
+                btn3D.innerText = "3D View: Off";
+            }
+            setTimeout(() => { if(map) map.invalidateSize(); }, 400);
+        }
+    </script>
+</body>
+</html>
